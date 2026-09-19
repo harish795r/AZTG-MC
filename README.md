@@ -1,6 +1,4 @@
-# AZTG-MC
-
-AZTG-MC is a Python-based Azure telemetry workflow for:
+Python-based Azure telemetry workflow for:
 - simulating service principal activity in Azure,
 - verifying telemetry pipeline output in Blob Storage,
 - fetching and parsing live logs, and
