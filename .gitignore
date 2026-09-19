@@ -216,3 +216,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# =================================================================
+# AZTG-MC Research Project Data & Cloud Logs (DO NOT PUSH)
+# =================================================================
+data/
+data/azure/
+data/aws/
+data/normalized/
+models/*.csv
+models/*.pkl
+models/*.joblib
+*.json
+*.csv
+*.log
+.env
+.env.local
+.env.*.local
