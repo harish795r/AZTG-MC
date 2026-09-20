@@ -8,7 +8,6 @@ import pandas as pd
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
-# Azure SDK
 from azure.identity import ClientSecretCredential
 from azure.mgmt.storage import StorageManagementClient
 try:
@@ -19,7 +18,8 @@ except ImportError:
 load_dotenv()
 
 print("=" * 80)
-print("  AZTG-MC: Deep Multi-Cloud Telemetry Harvester (30+ Metrics)")
+print("  AZTG-MC: Deep Multi-Cloud Telemetry Harvester (Realistic Enterprise Split)")
+print("  Distribution: ~45% Correct (Class 0) | ~38% Bloated (Class 1) | ~17% Admin (Class 2)")
 print("=" * 80)
 
 AZURE_TENANT = os.getenv("AZURE_TENANT_ID")
@@ -58,15 +58,18 @@ aws_users = [
 
 harvested_records = []
 
+# Burst weights to achieve realistic distribution: Class 0 (~5 calls), Class 1 (~4 calls), Class 2 (~2 calls)
+burst_weights = {0: 5, 1: 4, 2: 2}
+
 # ----------------- 1. LIVE AZURE HARVESTING -----------------
 print("\n[+] Ingesting Deep Metrics from Live Azure Infrastructure...")
 for sp in azure_sps:
     if not sp["id"] or not sp["sec"]:
         continue
     c = sp["class"]
-    burst_size = np.random.poisson(lam=8 if c==0 else (2 if c==1 else 1))
+    burst_size = burst_weights[c]
     
-    for i in range(max(1, burst_size)):
+    for i in range(burst_size):
         t_start = time.perf_counter()
         now = datetime.now(timezone.utc)
         
@@ -83,7 +86,6 @@ for sp in azure_sps:
         latency_ms = (time.perf_counter() - t_start) * 1000
 
         harvested_records.append({
-            # 1. Identity Context
             "timestamp": now.isoformat(),
             "epoch_time": int(now.timestamp()),
             "cloud_provider": "Azure",
@@ -92,25 +94,21 @@ for sp in azure_sps:
             "identity_type": "ServicePrincipal",
             "assigned_role_or_policy": sp["role"],
             "target_class": c,
-            # 2. Network & Origin
             "source_ip": "20.198.100.45" if random.random() > 0.05 else "198.51.100.99",
             "source_region": "Central India",
             "user_agent": "azure-sdk-for-python/1.28.0 OS/Windows",
             "tls_version": "TLSv1.3",
             "is_ip_anomaly": 1 if random.random() < 0.04 else 0,
-            # 3. Temporal Signatures
             "hour_of_day": now.hour,
             "day_of_week": now.weekday(),
             "is_off_hours": 1 if (now.hour < 6 or now.hour > 21) else 0,
             "is_weekend": 1 if now.weekday() >= 5 else 0,
             "latency_ms": round(latency_ms, 3),
-            # 4. Request Parameters
             "service_category": "ResourceManagement",
             "operation_name": "Microsoft.Resources/subscriptions/resourceGroups/read",
             "http_method": "GET",
             "api_version": "2021-04-01",
             "resource_scope": f"/subscriptions/{AZURE_SUB}/resourceGroups/{AZURE_RG}",
-            # 5. Response & Behavior
             "http_status": status_code,
             "error_detail": error_msg,
             "response_bytes": random.randint(450, 1200),
@@ -130,9 +128,9 @@ for u in aws_users:
     if not ak_id or not ak_sec:
         continue
     c = u["class"]
-    burst_size = np.random.poisson(lam=8 if c==0 else (2 if c==1 else 1))
+    burst_size = burst_weights[c]
 
-    for i in range(max(1, burst_size)):
+    for i in range(burst_size):
         t_start = time.perf_counter()
         now = datetime.now(timezone.utc)
         
@@ -149,7 +147,6 @@ for u in aws_users:
         latency_ms = (time.perf_counter() - t_start) * 1000
 
         harvested_records.append({
-            # 1. Identity Context
             "timestamp": now.isoformat(),
             "epoch_time": int(now.timestamp()),
             "cloud_provider": "AWS",
@@ -158,25 +155,21 @@ for u in aws_users:
             "identity_type": "IAMUser",
             "assigned_role_or_policy": u["policy"],
             "target_class": c,
-            # 2. Network & Origin
             "source_ip": "54.210.12.33" if random.random() > 0.05 else "203.0.113.50",
             "source_region": AWS_REGION,
             "user_agent": "Boto3/1.34.0 Python/3.10 Windows/10",
             "tls_version": "TLSv1.3",
             "is_ip_anomaly": 1 if random.random() < 0.04 else 0,
-            # 3. Temporal Signatures
             "hour_of_day": now.hour,
             "day_of_week": now.weekday(),
             "is_off_hours": 1 if (now.hour < 6 or now.hour > 21) else 0,
             "is_weekend": 1 if now.weekday() >= 5 else 0,
             "latency_ms": round(latency_ms, 3),
-            # 4. Request Parameters
             "service_category": "AmazonS3",
             "operation_name": "ListBuckets",
             "http_method": "POST",
             "api_version": "2006-03-01",
             "resource_scope": "arn:aws:s3:::*",
-            # 5. Response & Behavior
             "http_status": status_code,
             "error_detail": error_msg,
             "response_bytes": random.randint(600, 1800),
@@ -187,18 +180,18 @@ for u in aws_users:
             "service_diversity_count": 3 if c==0 else (2 if c==1 else 1)
         })
 
-# ----------------- 3. SYNTHESIZE FULL 28-DAY CORPUS -----------------
-print("\n[+] Multiplying into 28-Day High-Dimensional Telemetry Corpus...")
-full_corpus = harvested_records.copy()
+# ----------------- 3. SYNTHESIZE 28-DAY CORPUS -----------------
+print("\n[+] Synthesizing 28-Day Longitudinal Corpus...")
+full_corpus = []
 
-for day_offset in range(1, 28):
+for day_offset in range(28):
     sim_date = datetime.now(timezone.utc) - timedelta(days=day_offset)
     for rec in harvested_records:
         clone = rec.copy()
         clone["timestamp"] = (sim_date + timedelta(minutes=random.randint(0, 1440))).isoformat()
         clone["epoch_time"] = int(sim_date.timestamp())
-        clone["latency_ms"] = round(max(5.0, rec["latency_ms"] + np.random.normal(0, 4)), 3)
-        clone["response_bytes"] = max(200, rec["response_bytes"] + random.randint(-50, 50))
+        clone["latency_ms"] = round(max(5.0, rec["latency_ms"] + np.random.normal(0, 3)), 3)
+        clone["response_bytes"] = max(200, rec["response_bytes"] + random.randint(-40, 40))
         full_corpus.append(clone)
 
 # ----------------- 4. EXPORT -----------------
@@ -208,8 +201,13 @@ out_file = "data/normalized/aztg_mc_deep_telemetry.csv"
 df.to_csv(out_file, index=False)
 
 print("\n" + "=" * 80)
-print(f"🎉 Harvest Complete! Generated High-Dimensional Multi-Cloud Dataset.")
-print(f"   • Total Rows (Samples)      : {len(df):,}")
-print(f"   • Total Columns (Parameters): {df.shape[1]} metrics per event")
-print(f"   • Saved to                  : {out_file}")
+print(f"🎉 Dataset Exported: {out_file}")
+print(f"   • Total Records             : {len(df):,}")
+print(f"   • Columns (Parameters)      : {df.shape[1]}")
+
+print("\n[+] Realistic Enterprise Class Distribution:")
+counts = df["target_class"].value_counts().sort_index()
+for c, count in counts.items():
+    name = "Reader (Class 0 — Correctly Privileged)" if c==0 else ("Contributor (Class 1 — Overprivileged)" if c==1 else "Owner (Class 2 — Severely Overprivileged)")
+    print(f"   • {name:<45} : {count:,} records ({count/len(df)*100:.1f}%)")
 print("=" * 80)
