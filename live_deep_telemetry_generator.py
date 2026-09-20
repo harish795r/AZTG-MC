@@ -5,7 +5,7 @@ import random
 import boto3
 import numpy as np
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 # Azure SDK
